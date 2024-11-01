@@ -1,0 +1,163 @@
+#include <iostream>
+#include <vector>
+#include <atomic>
+#include <cstring>  // For memset
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#else
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#endif
+
+#define SERVER_PORT 8080
+#define PROXY_PORT 9090
+
+using namespace std;
+
+// Global variable to indicate if the proxy should stop
+atomic<bool> should_stop(false);
+
+int main() {
+    SOCKET server_sock, proxy_sock, client_sock;
+    struct sockaddr_in server_addr, proxy_addr, client_addr;
+    // char buffer[1024] = {0};
+    int addrlen = sizeof(client_addr);
+
+    #ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+    #endif
+
+    // Create proxy socket
+    if ((proxy_sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        cout << "\033[31m[Proxy]: Socket creation failed\033[0m" << endl;
+        return -1;
+    }
+    cout << "\033[32m[Proxy]: Socket created successfully\033[0m" << endl;
+
+    // Setup proxy address
+    proxy_addr.sin_family = AF_INET;
+    proxy_addr.sin_addr.s_addr = INADDR_ANY;
+    proxy_addr.sin_port = htons(PROXY_PORT);
+
+    // Bind proxy socket to address
+    if (bind(proxy_sock, (struct sockaddr *)&proxy_addr, sizeof(proxy_addr)) < 0) {
+        cout << "\033[31m[Proxy]: Bind failed\033[0m" << endl;
+        return -1;
+    }
+    cout << "\033[32m[Proxy]: Bind successful\033[0m" << endl;
+
+    // Listen for client connections
+    if (listen(proxy_sock, 5) < 0) {
+        cout << "\033[31m[Proxy]: Listen failed\033[0m" << endl;
+        return -1;
+    }
+    cout << "\033[33m[Proxy]: Waiting for client connections...\033[0m" << endl;
+
+    // Connect to the server
+    if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        cout << "\033[31m[Proxy]: Failed to create server socket\033[0m" << endl;
+        return -1;
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+
+    // Convert localhost to binary address
+    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+        cout << "\033[31m[Proxy]: Invalid server address\033[0m" << endl;
+        return -1;
+    }
+
+    if (connect(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        cout << "\033[31m[Proxy]: Connection to server failed\033[0m" << endl;
+        return -1;
+    }
+    cout << "\033[32m[Proxy]: Connected to server\033[0m" << endl;
+
+    // Multi-client handling logic
+    fd_set masterSet, readSet;
+    vector<SOCKET> clientSockets;
+    const int bufferSize = 1024;
+    int max_sd = proxy_sock;
+
+    FD_ZERO(&masterSet);
+    FD_SET(proxy_sock, &masterSet);
+
+    while (!should_stop) {
+        readSet = masterSet;
+
+        int activity = select(max_sd + 1, &readSet, NULL, NULL, NULL);
+        if (activity < 0 && errno != EINTR) {
+            cout << "\033[31m[Proxy]: Select failed\033[0m" << endl;
+            break;
+        }
+
+        if (FD_ISSET(proxy_sock, &readSet)) {
+            client_sock = accept(proxy_sock, (struct sockaddr *)&client_addr, (socklen_t *)&addrlen);
+            if (client_sock == INVALID_SOCKET) {
+                cout << "\033[31m[Proxy]: Client accept failed\033[0m" << endl;
+                continue;
+            }
+            cout << "\033[32m[Proxy]: Client connected (FD " << client_sock << ")\033[0m" << endl;
+
+            // Add new client to the master set
+            FD_SET(client_sock, &masterSet);
+            clientSockets.push_back(client_sock);
+            if (client_sock > max_sd) {
+                max_sd = client_sock;
+            }
+        }
+
+        for (auto it = clientSockets.begin(); it != clientSockets.end(); ) {
+            SOCKET clientSocket = *it;
+            if (FD_ISSET(clientSocket, &readSet)) {
+                char clientBuffer[bufferSize] = {0};
+                char senderBuffer[bufferSize] = {0};
+                int bytesReceived = recv(clientSocket, clientBuffer, bufferSize, 0);
+
+                if (bytesReceived <= 0) {
+                    // Client disconnect or error
+                    closesocket(clientSocket);
+                    FD_CLR(clientSocket, &masterSet);
+                    it = clientSockets.erase(it);
+                    cout << "\033[31m[Proxy]: Client disconnected (FD " << clientSocket << ")\033[0m" << endl;
+                } else {
+                    clientBuffer[bytesReceived] = '\0';
+                    cout << "\033[33m[Proxy]: Message from client (FD " << clientSocket << "): " << clientBuffer << "\033[0m" << endl;
+
+                    // Forward message to the server
+                    send(server_sock, clientBuffer, bytesReceived, 0);
+
+                    // Receive response from server
+                    bytesReceived = recv(server_sock, senderBuffer, bufferSize, 0);
+                    senderBuffer[bytesReceived] = '\0';
+
+                    // Send the response back to the client
+                    send(clientSocket, senderBuffer, bytesReceived, 0);
+                    if(strcmp(clientBuffer, "exit") == 0){
+                        cout << "\033[32m[Proxy]: Message of Server forwarded to client (FD " << clientSocket << ")\033[0m" << endl;
+                    }
+                    ++it;
+                }
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    // Cleanup
+    for (auto sock : clientSockets) {
+        closesocket(sock);
+    }
+
+    #ifdef _WIN32
+    WSACleanup();
+    #endif
+
+    return 0;
+}
