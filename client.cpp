@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <thread> // for multi-threading
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -18,8 +19,40 @@ using namespace std;
 
 #define PROXY_PORT 9090
 
+void sendAndRecvMsg(SOCKET client_sock){
+    char recvbuf[1024];
+    int recvbuflen = 1024;
+    string sendbuf;
+    int bytesReceived;
+
+    while(true) {
+        cout << "Client: ";
+        getline(cin, sendbuf);
+        send(client_sock, sendbuf.c_str(), sizeof(sendbuf), 0);
+
+        if(sendbuf == "exit") {
+            cout << "\033[31m[Proxy]: Client exiting the chat...\033[0m" << endl;
+            bytesReceived = recv(client_sock, recvbuf, recvbuflen, 0);
+            break;
+        }
+
+        bytesReceived = recv(client_sock, recvbuf, recvbuflen, 0);
+        if(bytesReceived > 0) {
+            recvbuf[bytesReceived] = '\0'; // Null-terminate received data
+
+            if(strcmp(recvbuf, "exit") == 0) {
+                cout << "\nServer has exited the chat." << endl;
+                break;
+            }
+        }
+    }
+
+    cout << "\033[32m[Client]: Response from server: \033[0m" << recvbuf << endl;
+
+}
+
 int main() {
-    int sock = 0;
+    SOCKET client_sock;
     struct sockaddr_in proxy_addr;
     string user_message;
 
@@ -32,7 +65,7 @@ int main() {
     #endif
 
     // Create socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((client_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         cout << "\033[31m[Client]: Socket creation error\033[0m" << endl;
         return -1;
     }
@@ -48,46 +81,22 @@ int main() {
     }
 
     // Connect to the proxy server
-    if (connect(sock, (struct sockaddr *)&proxy_addr, sizeof(proxy_addr)) < 0) {
+    if (connect(client_sock, (struct sockaddr *)&proxy_addr, sizeof(proxy_addr)) < 0) {
         cout << "\033[31m[Client]: Connection to proxy failed\033[0m" << endl;
         return -1;
     }
-    cout << "\033[32m[Client]: Connected to proxy!\033[0m" << endl;
+    cout << "\033[33m[Client]: Connected to proxy! (FD " << client_sock << ")\033[0m" << endl;
+    cout << "\033[33m[Client]: Type 'exit' to disconnect.\033[0m" << endl;
 
-    char recvbuf[1024];
-    int recvbuflen = 1024;
-    string sendbuf;
-    int bytesReceived;
-
-    while(true) {
-        cout << "Client: ";
-        getline(cin, sendbuf);
-        send(sock, sendbuf.c_str(), sizeof(sendbuf), 0);
-
-        if(sendbuf == "exit") {
-            cout << "Client exiting the chat..." << endl;
-            break;
-        }
-
-        bytesReceived = recv(sock, recvbuf, recvbuflen, 0);
-        if(bytesReceived > 0) {
-            recvbuf[bytesReceived] = '\0'; // Null-terminate received data
-
-            if(strcmp(recvbuf, "exit") == 0) {
-                cout << "\nServer has exited the chat." << endl;
-                break;
-            }
-        }
-    }
-
-    cout << "\033[32m[Client]: Response from server: \033[0m" << recvbuf << endl;
-
+    thread client_thread(sendAndRecvMsg, client_sock);
+    client_thread.join();
+    
     // Close the socket
     #ifdef _WIN32
-    closesocket(sock);
+    closesocket(client_sock);
     WSACleanup();
     #else
-    close(sock);
+    close(client_sock);
     #endif
 
     return 0;
