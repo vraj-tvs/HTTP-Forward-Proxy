@@ -12,7 +12,7 @@
 #include <unistd.h>
 #endif
 
-#define SERVER_PORT 8080
+#define SERVER_PORT 8081
 
 using namespace std;
 
@@ -24,18 +24,27 @@ void handleRequest(SOCKET proxy_sock){
         int valread = recv(proxy_sock, buffer, sizeof(buffer), 0);
         if (valread <= 0) {
             if (valread == 0) {
-                cout << "\033[31m[Server]: Proxy disconnected. Shutting down server...\033[0m" << endl;
+                cout << "\033[31m[Server]: Proxy disconnected.\033[0m" << endl;
             } else {
                 cout << "\033[31m[Server]: Error receiving message from proxy\033[0m" << endl;
             }
             break;  // Exit loop and close the server
         }
 
+        // Parse client ID from message
+        string message(buffer);
+        int delimiter = message.find(":");
+        int clientID = stoi(message.substr(0, delimiter));
+        string actualMessage = message.substr(delimiter + 1);
+
         // Print the received message from proxy
-        cout << "\033[32m[Server]: Message received: \033[0m" << buffer << endl;
+        cout << "\033[32m[Server]: Message received (ClientID " << clientID << "): \033[0m" << actualMessage << endl;
+
+        // Process the message, then respond with client ID
+        string responseWithID = to_string(clientID) + ":" + "Server response";
 
         // Respond to the proxy
-        const char* response = "Message received by server";
+        const char* response = responseWithID.c_str();
         send(proxy_sock, response, strlen(response), 0);
     }
 
@@ -66,8 +75,8 @@ int main() {
     cout << "\033[32m[Server]: Socket created successfully\033[0m" << endl;
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
 
     // Bind the socket to the server address
     if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -92,7 +101,7 @@ int main() {
         cout << "\033[32m[Server]: Proxy connected!\033[0m" << endl;
 
         thread proxy_thread(handleRequest, proxy_sock);
-        proxy_thread.detach();
+        proxy_thread.join();
     }
 
     // Close server socket

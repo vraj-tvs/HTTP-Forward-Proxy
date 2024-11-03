@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 #include <vector>
 #include <atomic>
 #include <cstring>  // For memset
@@ -14,39 +15,53 @@
 #include <unistd.h>
 #endif
 
-#define SERVER_PORT 8080
 #define PROXY_PORT 9090
 
 using namespace std;
 
-void handleClient(SOCKET client_sock, SOCKET server_sock){
+// Map to store client socket and server assignment
+map<SOCKET, int> clientIDMap;
+map<int, int> clientToServerMap;
+map<int, SOCKET> serverSockets;
+int uniqueClientID = 1; // Simple counter to generate unique IDs
+
+// Function to handle each client connection
+void handleClient(SOCKET client_sock, SOCKET server_sock, int clientID, int serverID){
     int bufferSize = 1024;
     char clientBuffer[bufferSize] = {0};
-    char senderBuffer[bufferSize] = {0};
+    char serverBuffer[bufferSize] = {0};
 
     while (true) {
         int bytesReceived = recv(client_sock, clientBuffer, 1024, 0);
         if (bytesReceived <= 0) {
-            cout << "\033[31m[Proxy]: Client disconnected (FD " << client_sock << ")\033[0m" << endl;
+            cout << "\033[31m[Proxy]: Client disconnected (ClientID " << clientID << ")\033[0m" << endl;
             break;
         }
-        else{
-            clientBuffer[bytesReceived] = '\0';
-            cout << "\033[33m[Proxy]: Message from client (FD " << client_sock << "): " << clientBuffer << "\033[0m" << endl;
 
-            // Forward message to the server
-            send(server_sock, clientBuffer, bytesReceived, 0);
+        clientBuffer[bytesReceived] = '\0';
+        cout << "\033[33m[Proxy]: Message from client (ClientID " << clientID << "): " << clientBuffer << "\033[0m" << endl;
 
-            // Receive response from server
-            bytesReceived = recv(server_sock, senderBuffer, bufferSize, 0);
-            senderBuffer[bytesReceived] = '\0';
+        // Forward message to the server
+        string messageWithID = to_string(clientID) + ":" + clientBuffer;
+        send(server_sock, messageWithID.c_str(), sizeof(messageWithID), 0);
 
-            // Send the response back to the client
-            send(client_sock, senderBuffer, bytesReceived, 0);
-            if(strcmp(clientBuffer, "exit") == 0){
-                cout << "\033[32m[Proxy]: Message of Server forwarded to client (FD " << client_sock << ")\033[0m" << endl;
-            }
+        // Receive response from server
+        bytesReceived = recv(server_sock, serverBuffer, bufferSize, 0);
+        serverBuffer[bytesReceived] = '\0';
+
+        // Parse client ID from server response
+        string message(serverBuffer);
+        int delimiter = message.find(":");
+        int clientID = stoi(message.substr(0, delimiter));
+        string actualMessage = message.substr(delimiter + 1);
+
+        // Send the response back to the client
+        send(client_sock, actualMessage.c_str(), sizeof(actualMessage), 0);
+        if(strcmp(clientBuffer, "exit") == 0){
+            cout << "\033[32m[Proxy]: Message of Server " << serverID << " forwarded to client " << clientID << "\033[0m" << endl;
+            break;
         }
+        
     }
 
     #ifdef _WIN32
@@ -56,11 +71,45 @@ void handleClient(SOCKET client_sock, SOCKET server_sock){
     #endif
 }
 
+// Function to accept and assign clients to servers
+void acceptClients(SOCKET proxy_sock, int numServers){
+    SOCKET client_sock;
+    struct sockaddr_in client_addr;
+    int addrlen = sizeof(client_addr);
+    
+    // Multi-client handling logic (multi-threaded)
+    while(true){
+        client_sock = accept(proxy_sock, (struct sockaddr *)&client_addr, (socklen_t *)&addrlen);
+        if (client_sock == INVALID_SOCKET) {
+            cout << "\033[31m[Proxy]: Client accept failed\033[0m" << endl;
+            continue;
+        }
+
+        // Assign a unique ID and inform the client
+        int clientID = uniqueClientID++;
+        clientIDMap[client_sock] = clientID;
+        send(client_sock, to_string(clientID).c_str(), sizeof(to_string(clientID)), 0); // Send ID to client
+        
+        // Assign a server to the client
+        int serverID = (clientID % numServers) + 1;
+        SOCKET server_sock = serverSockets[serverID];
+        clientToServerMap[clientID] = serverID;
+
+        // TODO: assignment of client to some other server if the server with no. ServerID isn't connected to proxy
+
+        cout << "\033[32m[Proxy]: Client " << clientID << " connected and assigned to Server " << serverID << "\033[0m" << endl;
+
+        thread client_thread(handleClient, client_sock, server_sock, clientID, serverID);
+        client_thread.detach();
+    }
+}
 
 int main() {
-    SOCKET server_sock, proxy_sock, client_sock;
-    struct sockaddr_in server_addr, proxy_addr, client_addr;
-    int addrlen = sizeof(client_addr);
+    int numServers = 3; // Define the number of servers
+    int serverPorts[] = {8081, 8082, 8083}; // List of server ports
+
+    SOCKET proxy_sock;
+    struct sockaddr_in proxy_addr;
 
     #ifdef _WIN32
     WSADATA wsaData;
@@ -86,54 +135,52 @@ int main() {
     }
     cout << "\033[32m[Proxy]: Bind successful\033[0m" << endl;
 
-    // Connect to the server
-    if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        cout << "\033[31m[Proxy]: Failed to create server socket\033[0m" << endl;
-        return -1;
+    // Initialize connections to all servers
+    for (int i = 0; i < numServers; i++) {
+        SOCKET server_sock;
+        struct sockaddr_in server_addr;
+
+        // Connect to the server
+        if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+            cout << "\033[31m[Proxy]: Failed to create server socket\033[0m" << endl;
+            return -1;
+        }
+
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(serverPorts[i]);
+
+        // Convert localhost to binary address
+        if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+            cout << "\033[31m[Proxy]: Invalid server address\033[0m" << endl;
+            // return -1;
+            continue;
+        }
+
+        if (connect(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+            cout << "\033[31m[Proxy]: Connection to Server " << i+1 << " failed\033[0m" << endl;
+            // return -1;
+            continue;
+        }
+        
+        serverSockets[i + 1] = server_sock;
+        cout << "\033[32m[Proxy]: Connected to Server " << i+1 << "\033[0m" << endl;
     }
 
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(SERVER_PORT);
-
-    // Convert localhost to binary address
-    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
-        cout << "\033[31m[Proxy]: Invalid server address\033[0m" << endl;
-        return -1;
-    }
-
-    if (connect(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        cout << "\033[31m[Proxy]: Connection to server failed\033[0m" << endl;
-        return -1;
-    }
-    cout << "\033[32m[Proxy]: Connected to server\033[0m" << endl;
-    
     // Listen for client connections
-    if (listen(proxy_sock, 5) < 0) {
+    if (listen(proxy_sock, 10) < 0) {
         cout << "\033[31m[Proxy]: Listen failed\033[0m" << endl;
         return -1;
     }
     cout << "\033[33m[Proxy]: Waiting for client connections...\033[0m" << endl;
 
-    // Multi-client handling logic (multi-threaded)
-    while(true){
-        client_sock = accept(proxy_sock, (struct sockaddr *)&client_addr, (socklen_t *)&addrlen);
-        if (client_sock == INVALID_SOCKET) {
-            cout << "\033[31m[Proxy]: Client accept failed\033[0m" << endl;
-            continue;
-        }
-        cout << "\033[32m[Proxy]: Client connected (FD " << client_sock << ")\033[0m" << endl;
-
-        thread client_thread(handleClient, client_sock, server_sock);
-        client_thread.detach();
-    }
+    thread acceptThread(acceptClients, proxy_sock, numServers);
+    acceptThread.join();
 
     #ifdef _WIN32
     closesocket(proxy_sock);
-    closesocket(server_sock);
     WSACleanup();
     #else
     close(proxy_sock);
-    close(server_sock);
     #endif
 
     return 0;

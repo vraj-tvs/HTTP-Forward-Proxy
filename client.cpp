@@ -85,7 +85,13 @@ int main() {
         cout << "\033[31m[Client]: Connection to proxy failed\033[0m" << endl;
         return -1;
     }
-    cout << "\033[33m[Client]: Connected to proxy! (FD " << client_sock << ")\033[0m" << endl;
+    cout << "\033[33m[Client]: Connected to proxy!\033[0m" << endl;
+
+    // Receive client ID from proxy
+    char buff[1024];
+    recv(client_sock, buff, sizeof(buff), 0);
+    int clientID = stoi(buff);
+    cout << "\033[33m[Client]: ClientID assigned by proxy: " << clientID << "\033[0m" << endl;
     cout << "\033[33m[Client]: Type 'exit' to disconnect.\033[0m" << endl;
 
     thread client_thread(sendAndRecvMsg, client_sock);
