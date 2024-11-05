@@ -91,7 +91,15 @@ int main() {
     char buff[1024];
     recv(client_sock, buff, sizeof(buff), 0);
     int clientID = stoi(buff);
-    cout << "\033[33m[Client]: ClientID assigned by proxy: " << clientID << "\033[0m" << endl;
+    cout << "\033[32m[Client]: ClientID assigned by proxy: " << clientID << "\033[0m" << endl;
+
+    // Ask for server no. to connect with
+    cout << "\033[32m[Client]: Enter the server no. (1   2   3) you would like to connect to: \033[0m";
+    string serverNumBuff;
+    getline(cin, serverNumBuff);
+    int serverNum = stoi(serverNumBuff);
+    send(client_sock, to_string(serverNum).c_str(), to_string(serverNum).length(), 0);
+    cout << "\033[33m[Client]: Connected to server " << serverNum << "\033[0m" << endl;
     cout << "\033[33m[Client]: Type 'exit' to disconnect.\033[0m" << endl;
 
     thread client_thread(sendAndRecvMsg, client_sock);

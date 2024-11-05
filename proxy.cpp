@@ -90,8 +90,10 @@ void acceptClients(SOCKET proxy_sock, int numServers){
         clientIDMap[client_sock] = clientID;
         send(client_sock, to_string(clientID).c_str(), sizeof(to_string(clientID)), 0); // Send ID to client
         
-        // Assign a server to the client
-        int serverID = (clientID % numServers) + 1;
+        // Assign the requested server to the client
+        char serverIdBuffer[1024] = {0};
+        recv(client_sock, serverIdBuffer, sizeof(serverIdBuffer), 0);
+        int serverID = stoi(serverIdBuffer);
         SOCKET server_sock = serverSockets[serverID];
         clientToServerMap[clientID] = serverID;
 
