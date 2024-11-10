@@ -1,9 +1,11 @@
 #include <iostream>
 #include <vector>
 #include <atomic>
+#include <thread> // For multi-threading
 #include <cstring>  // For memset
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -12,7 +14,6 @@ using json = nlohmann::json;
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
 #endif
 
 #define SERVER_PORT 8080
@@ -33,7 +34,7 @@ struct Server {
 // Global list of available servers
 vector<Server> servers = {
     {"127.0.0.1", 8081,"server1"},  // Server 1
-     {"127.0.0.1", 8082,"server2"},  // Server 2
+    {"127.0.0.1", 8082,"server2"},  // Server 2
     {"127.0.0.1", 8083,"server3"}   // Server 3
 };
 
@@ -52,10 +53,10 @@ int main() {
     int addrlen = sizeof(client_addr);
     const int bufferSize = 1024;
 
-#ifdef _WIN32
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-#endif
+    #ifdef _WIN32
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+    #endif
 
     // Create proxy socket
     if ((proxy_sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {

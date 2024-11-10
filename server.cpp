@@ -20,10 +20,10 @@ void run_server(int port) {
     char buffer[1024] = { 0 };
     int addrlen = sizeof(proxy_addr);
 
-#ifdef _WIN32
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-#endif
+    #ifdef _WIN32
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+    #endif
 
     // Create server socket
     if ((server_sock = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
