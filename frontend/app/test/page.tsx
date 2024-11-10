@@ -4,6 +4,7 @@ import Navbar from "@/app/UI-Components/Navbar";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Box } from "@radix-ui/themes";
+import axios from "axios";
 import { Send, Server, Shield } from "lucide-react";
 import { useState } from "react";
 
@@ -44,10 +45,12 @@ function TestingProxy() {
     { id: "server3", name: "Server 3 - Balanced" },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setResponse(`Message sent through ${selectedServer}: "${message}"`);
+    const response = await axios.post("http://localhost:9090", { message, selectedServer });
+
+    setResponse(`Response from ${selectedServer}: ${response.data}`);
     setMessage("");
   };
   return (
