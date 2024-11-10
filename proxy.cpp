@@ -17,12 +17,29 @@ using json = nlohmann::json;
 #endif
 
 #define SERVER_PORT 8080
+
 #define PROXY_PORT 9090
 
 using namespace std;
 
-// Global variable to indicate if the proxy should stop
-atomic<bool> should_stop(false);
+// Map to store client socket and server assignment
+map<SOCKET, int> clientIDMap;
+map<int, int> clientToServerMap;
+map<int, SOCKET> serverSockets;
+int uniqueClientID = 1; // Simple counter to generate unique IDs
+
+// Function to handle each client connection
+void handleClient(SOCKET client_sock, SOCKET server_sock, int clientID, int serverID){
+    int bufferSize = 1024;
+    char clientBuffer[bufferSize] = {0};
+    char serverBuffer[bufferSize] = {0};
+
+    while (true) {
+        int bytesReceived = recv(client_sock, clientBuffer, 1024, 0);
+        if (bytesReceived <= 0) {
+            cout << "\033[31m[Proxy]: Client disconnected (ClientID " << clientID << ")\033[0m" << endl;
+            break;
+        }
 
 struct Server {
     string address;
@@ -77,12 +94,10 @@ int main() {
     }
     cout << "\033[32m[Proxy]: Bind successful\033[0m" << endl;
 
-    // Listen for client connections
-    if (listen(proxy_sock, 5) < 0) {
-        cout << "\033[31m[Proxy]: Listen failed\033[0m" << endl;
-        return -1;
-    }
-    cout << "\033[33m[Proxy]: Waiting for client connections...\033[0m" << endl;
+    // Initialize connections to all servers
+    for (int i = 0; i < numServers; i++) {
+        SOCKET server_sock;
+        struct sockaddr_in server_addr;
 
     // Create server sockets for each server
     for (auto& server : servers) {
@@ -171,7 +186,7 @@ int main() {
                     int server_socket = findServerSocket(selectedServer);
 
 
-                    if (server_socket != -1) {
+                    if (server_sochttps://github.com/vraj-tvs/HTTP-Forward-Proxy/pull/2/conflict?name=server.cpp&ancestor_oid=bff7c19f7ef4332d36afe8c0f8737c4dfe4fcefe&base_oid=822e4a0f594f7c8f284d6e8bff961f9d11c9053e&head_oid=62d87d67c3a20238688ae03038ce01401ddec25fket != -1) {
                         // Forward message to the selected server
                         send(server_socket, messageRecv.c_str(), messageRecv.size(), 0);
 
@@ -195,12 +210,21 @@ int main() {
                 ++it;
             }
         }
+        
+        serverSockets[i + 1] = server_sock;
+        cout << "\033[32m[Proxy]: Connected to Server " << i+1 << "\033[0m" << endl;
     }
 
-    // Cleanup
-    for (auto sock : clientSockets) {
-        closesocket(sock);
+    // Listen for client connections
+    if (listen(proxy_sock, 10) < 0) {
+        cout << "\033[31m[Proxy]: Listen failed\033[0m" << endl;
+        return -1;
     }
+    cout << "\033[33m[Proxy]: Waiting for client connections...\033[0m" << endl;
+
+    thread acceptThread(acceptClients, proxy_sock, numServers);
+    acceptThread.join();
+
 
     for (auto& server : servers) {
         closesocket(server.socket);

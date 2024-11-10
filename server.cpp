@@ -18,6 +18,7 @@ void run_server(int port) {
     int server_sock = 0, proxy_sock = 0;
     struct sockaddr_in server_addr, proxy_addr;
     char buffer[1024] = { 0 };
+
     int addrlen = sizeof(proxy_addr);
 
     #ifdef _WIN32
@@ -35,6 +36,7 @@ void run_server(int port) {
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(port);
+
 
     // Bind the socket to the server address
     if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
@@ -73,6 +75,8 @@ void run_server(int port) {
             }
             break;  // Exit loop and close the server
         }
+        cout << "\033[32m[Server]: Proxy connected!\033[0m" << endl;
+
 
         // Print the received message from proxy
         cout << "\033[32m[Server on port " << port << "]: Message received: \033[0m" << buffer << endl;
@@ -89,6 +93,7 @@ void run_server(int port) {
     WSACleanup();
 #else
     close(proxy_sock);
+
     close(server_sock);
 #endif
 
@@ -108,3 +113,4 @@ int main() {
 
     return 0;
 }
+
