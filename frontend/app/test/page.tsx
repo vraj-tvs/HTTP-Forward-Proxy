@@ -40,9 +40,9 @@ function TestingProxy() {
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState("");
   const servers = [
-    { id: "server1", name: "Server 1 - Fast & Secure" },
-    { id: "server2", name: "Server 2 - Ultra Private" },
-    { id: "server3", name: "Server 3 - Balanced" },
+    { id: "server1", name: "Server 1 - India" },
+    { id: "server2", name: "Server 2 - USA" },
+    { id: "server3", name: "Server 3 - Local" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
