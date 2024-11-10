@@ -48,9 +48,9 @@ function TestingProxy() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const response = await axios.post("http://localhost:9090", { message, selectedServer });
+    const response = await axios.post("/api/send-message", { message, selectedServer });
 
-    setResponse(`Response from ${selectedServer}: ${response.data}`);
+    setResponse(`Response from ${selectedServer}: ${response.data.message}`);
     setMessage("");
   };
   return (

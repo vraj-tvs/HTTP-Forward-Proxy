@@ -16,7 +16,7 @@ function Navbar() {
       </Link>
 
       <div className="flex items-center gap-9 p-8 uppercase">
-        <button className="uppercase rounded-3xl text-xl px-7 bg-purple-700 py-1">BUY</button>
+        {/* <button className="uppercase rounded-3xl text-xl px-7 bg-purple-700 py-1">BUY</button> */}
       </div>
     </div>
   );
