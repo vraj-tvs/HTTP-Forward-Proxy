@@ -3,7 +3,7 @@
 #include <atomic>
 #include <thread> // For multi-threading
 #include <cstring>  // For memset
-#include <nlohmann/json.hpp>
+#include "json.hpp"
 using json = nlohmann::json;
 
 #ifdef _WIN32
