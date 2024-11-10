@@ -109,6 +109,7 @@ void acceptClients(SOCKET proxy_sock, int numServers){
 int main() {
     int numServers = 3; // Define the number of servers
     int serverPorts[] = {8081, 8082, 8083}; // List of server ports
+    // char* serverIP[] = {"10.81.107.5", "127.0.0.1", "127.0.0.1"}; // List of server ports
 
     SOCKET proxy_sock;
     struct sockaddr_in proxy_addr;
@@ -152,7 +153,7 @@ int main() {
         server_addr.sin_port = htons(serverPorts[i]);
 
         // Convert localhost to binary address
-        if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
+        if (inet_pton(AF_INET, "10.81.107.5", &server_addr.sin_addr) <= 0) {
             cout << "\033[31m[Proxy]: Invalid server address\033[0m" << endl;
             // return -1;
             continue;

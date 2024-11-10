@@ -94,7 +94,7 @@ int main() {
     cout << "\033[32m[Client]: ClientID assigned by proxy: " << clientID << "\033[0m" << endl;
 
     // Ask for server no. to connect with
-    cout << "\033[32m[Client]: Enter the server no. (1   2   3) you would like to connect to: \033[0m";
+    cout << "\033[32m[Client]: Enter the server no. (1(US)   2(India)   3(Local Machine)) you would like to connect to: \033[0m";
     string serverNumBuff;
     getline(cin, serverNumBuff);
     int serverNum = stoi(serverNumBuff);
