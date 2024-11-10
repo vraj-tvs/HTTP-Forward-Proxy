@@ -4,7 +4,8 @@ import Link from "next/link";
 
 function LandingPageNavbar() {
   return (
-    <div className="w-screen flex items-center justify-between shadow-xl ring-1 ring-black/5 bg-black/10 sticky top-0 bg-gradient-to-br from-violet-950 via-violet-700 to-violet-900">
+    // <div className="w-screen flex items-center justify-between shadow-xl ring-1 ring-black/5 bg-black/10 sticky top-0 bg-gradient-to-br from-orange-800 via-yellow-700 to-orange-800">
+    <div className="w-screen flex items-center justify-between shadow-xl ring-1 ring-black/5 bg-black/10 sticky top-0 bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800">
       <Link href={"/"}>
         <div className="flex items-center p-8 gap-2">
           <Shield className="w-8 h-8" />
@@ -25,7 +26,9 @@ function LandingPageNavbar() {
             About
           </Text>
         </Link>
-        <button className="uppercase rounded-3xl text-xl px-7 bg-purple-700 py-1">Testing Playground</button>
+        <Link href={"/test"}>
+          <button className="uppercase rounded-3xl text-xl px-7 bg-gradient-to-br from-indigo-900 via-violet-800 to-indigo-900 py-1">Testing Playground</button>
+        </Link>
       </div>
     </div>
   );
