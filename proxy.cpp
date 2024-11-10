@@ -1,19 +1,4 @@
-#include <iostream>
-#include <map>
-#include <vector>
-#include <atomic>
-#include <cstring>  // For memset
-#include <thread> // for multi-threading
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "Ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#endif
+#include "utils.hpp"
 
 #define PROXY_PORT 9090
 
@@ -111,7 +96,7 @@ int main() {
     int serverPorts[] = {8081, 8082, 8083}; // List of server ports
     // char* serverIP[] = {"10.81.107.5", "127.0.0.1", "127.0.0.1"}; // List of server ports
 
-    SOCKET proxy_sock;
+    SOCKET proxy_sock; 
     struct sockaddr_in proxy_addr;
 
     #ifdef _WIN32

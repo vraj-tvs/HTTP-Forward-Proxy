@@ -1,23 +1,8 @@
-#include <iostream>
-#include <string>
-#include <cstring>
-#include <thread> // for multi-threading
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "Ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <sys/select.h>  // For select() on Unix systems
-#include <errno.h>       // For errno on Unix systems
-#endif
-
-using namespace std;
+#include "utils.hpp"
 
 #define PROXY_PORT 9090
+
+using namespace std;
 
 void sendAndRecvMsg(SOCKET client_sock){
     char recvbuf[1024];

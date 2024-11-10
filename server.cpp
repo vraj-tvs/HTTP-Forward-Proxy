@@ -1,16 +1,4 @@
-#include <iostream>
-#include <cstring>  // For memset
-#include <thread>  // For multi-threading
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "Ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#endif
+#include "utils.hpp"
 
 #define SERVER_PORT 8081
 
